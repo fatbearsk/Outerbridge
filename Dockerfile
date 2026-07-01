@@ -133,4 +133,62 @@ EXPOSE 3000
 # 2. packages/server start script
 # 3. common Node entry files
 # 4. static build folders
-CMD ["bash", "-lc", "set -e; PM=$(cat /tmp/package-manager 2>/dev/null || echo npm); export PORT=${PORT:-3000}; export HOST=${HOST:-0.0.0.0}; export HOSTNAME=${HOSTNAME:-0.0.0.0}; if node -e \"const p=require('./package.json'); process.exit(p.scripts && p.scripts.start ? 0 : 1)\" >/dev/null 2>&1; then case \"$PM\" in yarn) exec yarn start ;; pnpm) exec pnpm run start ;; npm) exec npm run start ;; esac; elif [ -f packages/server/package.json ] && node -e \"const p=require('./packages/server/package.json'); process.exit(p.scripts && p.scripts.start ? 0 : 1)\" >/dev/null 2>&1; then cd packages/server; case \"$PM\" in yarn) exec yarn start ;; pnpm) exec pnpm run start ;; npm) exec npm run start ;; esac; elif [ -f server.js ]; then exec node server.js; elif [ -f index.js ]; then exec node index.js; elif [ -f packages/server/server.js ]; then cd packages/server && exec node server.js; elif [ -f packages/server/index.js ]; then cd packages/server && exec node index.js; elif [ -d dist ]; then exec serve -s dist -l ${PORT}; elif [ -d build ]; then exec serve -s build -l ${PORT}; elif [ -d public ]; then exec serve -s public -l ${PORT}; else echo 'ERROR: no start target found'; find . -maxdepth 4 -type f \\( -name package.json -o -name server.js -o -name index.js \\) | sort; exit 1; fi"]
+RUN printf '%s\n' \
+'#!/usr/bin/env bash' \
+'set -e' \
+'' \
+'PM="$(cat /tmp/package-manager 2>/dev/null || echo npm)"' \
+'export PORT="${PORT:-3000}"' \
+'export HOST="${HOST:-0.0.0.0}"' \
+'export HOSTNAME="${HOSTNAME:-0.0.0.0}"' \
+'' \
+'has_root_start() {' \
+'  node -e "const p=require(\"./package.json\"); process.exit(p.scripts && p.scripts.start ? 0 : 1)" >/dev/null 2>&1' \
+'}' \
+'' \
+'has_server_start() {' \
+'  [ -f packages/server/package.json ] && node -e "const p=require(\"./packages/server/package.json\"); process.exit(p.scripts && p.scripts.start ? 0 : 1)" >/dev/null 2>&1' \
+'}' \
+'' \
+'run_pm_start() {' \
+'  case "$PM" in' \
+'    yarn) exec yarn start ;;' \
+'    pnpm) exec pnpm run start ;;' \
+'    npm|*) exec npm run start ;;' \
+'  esac' \
+'}' \
+'' \
+'if has_root_start; then' \
+'  run_pm_start' \
+'elif has_server_start; then' \
+'  cd packages/server' \
+'  run_pm_start' \
+'elif [ -f server.js ]; then' \
+'  exec node server.js' \
+'elif [ -f index.js ]; then' \
+'  exec node index.js' \
+'elif [ -f packages/server/server.js ]; then' \
+'  cd packages/server' \
+'  exec node server.js' \
+'elif [ -f packages/server/index.js ]; then' \
+'  cd packages/server' \
+'  exec node index.js' \
+'elif [ -d dist ]; then' \
+'  exec serve -s dist -l "$PORT"' \
+'elif [ -d build ]; then' \
+'  exec serve -s build -l "$PORT"' \
+'elif [ -d public ]; then' \
+'  exec serve -s public -l "$PORT"' \
+'else' \
+'  echo "ERROR: no start target found"' \
+'  find . -maxdepth 4 -type f \( -name package.json -o -name server.js -o -name index.js \) | sort' \
+'  exit 1' \
+'fi' \
+> /usr/local/bin/start-outerbridge \
+&& chmod +x /usr/local/bin/start-outerbridge
+
+ENV NODE_ENV=production
+
+EXPOSE 3000
+
+CMD ["/usr/local/bin/start-outerbridge"]
