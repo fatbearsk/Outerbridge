@@ -30,11 +30,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Make package managers available.
 # Yarn classic is included for older monorepos.
-RUN corepack enable || true \
-  && npm config set fund false \
-  && npm config set audit false \
-  && npm config set engine-strict false \
-  && npm install -g yarn@1.22.22 pnpm serve
+RUN set -eux; \
+  npm config set fund false; \
+  npm config set audit false; \
+  npm config set engine-strict false; \
+  if command -v corepack >/dev/null 2>&1; then \
+    corepack enable || true; \
+    corepack prepare yarn@1.22.22 --activate || true; \
+    corepack prepare pnpm@latest --activate || true; \
+  fi; \
+  if ! command -v yarn >/dev/null 2>&1; then \
+    npm install -g yarn@1.22.22 --force; \
+  fi; \
+  if ! command -v pnpm >/dev/null 2>&1; then \
+    npm install -g pnpm --force; \
+  fi; \
+  if ! command -v serve >/dev/null 2>&1; then \
+    npm install -g serve --force; \
+  fi; \
+  yarn --version || true; \
+  pnpm --version || true; \
+  npm --version
 
 # Copy everything first.
 # This intentionally avoids failing on:
